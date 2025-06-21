@@ -5,110 +5,54 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Load from .env
-NEWS_API_KEY = os.getenv("NEWS_API_KEY")
-OLLAMA_ENDPOINT = "http://localhost:11434/api/generate"
-NEWS_API_EVERYTHING = "https://newsapi.org/v2/everything"
-NEWS_API_HEADLINES = "https://newsapi.org/v2/top-headlines"
-
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_CX_ID = os.getenv("GOOGLE_CSE_ID")
 
 def extract_search_query(prompt: str) -> str:
-    """Query local Mistral via Ollama to get a short news search phrase."""
-    payload = {
-        "model": "mistral",
-        "prompt": (
-            "You are a smart assistant.\n"
-            "Task: Given a request, return only a 3-5 word search phrase related to news. "
-            "Don't explain. No label, just the phrase.\n"
-            f"Request: {prompt}\n"
-            "Search Phrase:"
-        ),
-        "stream": False
-    }
+    """Return the raw user query for Google search."""
+    return prompt.strip()
 
-    try:
-        res = requests.post(OLLAMA_ENDPOINT, json=payload, timeout=10)
-        res.raise_for_status()
-        result = res.json()
-        return result.get("response", "").strip().strip("\"'")  # trim quotes and whitespace
-    except Exception as e:
-        logging.error(f"[news_agent] Mistral/Ollama error: {e}")
-        return "latest news"
-
-
-def fetch_news_results(query: str) -> list:
-    """Search for news articles using NewsAPI with improved accuracy."""
+def search_news_google(query: str, max_results: int = 3) -> list:
+    """Use Google Custom Search API to get top news results."""
     params = {
-        "q": query,  # <-- removed exact match quotes
-        "apiKey": NEWS_API_KEY,
-        "pageSize": 3,
-        "sortBy": "relevancy",  # use relevance instead of date
-        "language": "en"
+        "key": GOOGLE_API_KEY,
+        "cx": GOOGLE_CX_ID,
+        "q": query,
+        "num": max_results
     }
 
     try:
-        res = requests.get(NEWS_API_EVERYTHING, params=params, timeout=10)  # <-- FIXED HERE
+        res = requests.get("https://www.googleapis.com/customsearch/v1", params=params, timeout=10)
         res.raise_for_status()
-        data = res.json()
+        items = res.json().get("items", [])
         return [
             {
-                "title": a["title"],
-                "url": a["url"],
-                "source": a["source"]["name"],
-                "published": a["publishedAt"][:10]
+                "title": item.get("title"),
+                "snippet": item.get("snippet"),
+                "url": item.get("link")
             }
-            for a in data.get("articles", [])
+            for item in items
         ]
     except Exception as e:
-        logging.error(f"[news_agent] NewsAPI error: {e}")
+        logging.error(f"[google_news] Search error: {e}")
         return []
-
-
-
-def fetch_headlines(country: str = "us") -> list:
-    """Fallback to top headlines if everything API returns nothing."""
-    params = {
-        "apiKey": NEWS_API_KEY,
-        "country": country,
-        "pageSize": 3
-    }
-
-    try:
-        res = requests.get(NEWS_API_HEADLINES, params=params, timeout=10)
-        res.raise_for_status()
-        data = res.json()
-        return format_articles(data.get("articles", []))
-    except Exception as e:
-        logging.error(f"[news_agent] Top headlines error: {e}")
-        return []
-
-
-def format_articles(articles: list) -> list:
-    """Format raw NewsAPI articles."""
-    return [
-        {
-            "title": a["title"],
-            "url": a["url"],
-            "source": a["source"]["name"],
-            "published": a["publishedAt"][:10]
-        }
-        for a in articles
-    ]
-
 
 def format_news_reply(articles: list, topic: str) -> str:
-    """Build reply message from articles."""
+    """Format articles into a neat, clickable Discord message."""
     if not articles:
-        return f"❌ Sorry, I couldn't find recent news on **{topic}**."
+        return f"❌ Sorry, I couldn't find relevant news on **{topic}**."
 
     reply = f"🗞️ Top news for **{topic}**:\n\n"
-    for art in articles:
-        reply += f"• [{art['title']}]({art['url']}) — {art['source']} ({art['published']})\n"
+    for i, art in enumerate(articles, start=1):
+        reply += (
+            f"**Article {i}**: [{art['title']}]({art['url']})\n"
+            f"🔹 {art['snippet']}\n\n"
+        )
     return reply
 
 
 def handle_news(user_input: str) -> str:
     """Main entrypoint for news intent."""
     topic = extract_search_query(user_input)
-    articles = fetch_news_results(topic)
+    articles = search_news_google(topic)
     return format_news_reply(articles, topic)
