@@ -1,26 +1,31 @@
 import os
 import requests
 
-# URL for hosted BART zero-shot classifier
-HF_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli"
-HF_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-
-# Must be set in your .env or environment
-HEADERS = {"Authorization": f"Bearer {HF_API_KEY}"}
+# Switch to local Mistral/Ollama endpoint for intent detection
+MISTRAL_ENDPOINT = os.getenv("OLLAMA_ENDPOINT", "http://localhost:11434/api/generate")
 INTENTS = ["music", "news", "qa"]
 
 def detect_intent(message: str, context=None) -> str:
+    prompt = (
+        "You are an intent classifier. "
+        f"Given the message: '{message}', classify it as one of: {', '.join(INTENTS)}. "
+        "Respond with only the intent label."
+    )
     payload = {
-        "inputs": message,
-        "parameters": {"candidate_labels": INTENTS}
+        "model": "mistral",
+        "prompt": prompt,
+        "stream": False
     }
 
     try:
-        response = requests.post(HF_API_URL, headers=HEADERS, json=payload)
+        response = requests.post(MISTRAL_ENDPOINT, json=payload, timeout=10)
         response.raise_for_status()
-
         result = response.json()
-        return result["labels"][0]  # top intent
+        intent = result.get("response", "").strip().lower()
+        if intent in INTENTS:
+            return intent
+        else:
+            return "qa"  # fallback intent
     except Exception as e:
         print(f"Intent detection failed: {e}")
-        return "qa"  # fallback
+        return "qa"  # fallback intent
