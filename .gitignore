@@ -1,3 +1,4 @@
 .env
 memory.db
 agents/__pycache__
+app.js
