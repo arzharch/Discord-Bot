@@ -63,8 +63,8 @@ Perfect for servers that want a smart, interactive, and fun assistant!
 
 1. **Clone the repository**
    ```sh
-   git clone https://github.com/yourusername/whatsapp-bot.git
-   cd whatsapp-bot
+   https://github.com/arzharch/Discord-Bot.git
+   cd discord-bot
    ```
 
 2. **Install dependencies**
@@ -72,11 +72,10 @@ Perfect for servers that want a smart, interactive, and fun assistant!
    pip install -r requirements.txt
    ```
 
-3. **Set up your `.env` file** with:
+3. **Set up your `.env` file** with:  (ALL ARE FREE !!)
    - `DISCORD_BOT_TOKEN`
    - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REFRESH_TOKEN`
    - `GOOGLE_API_KEY`, `GOOGLE_CSE_ID`
-   - *(Optional)* `LASTFM_API_KEY`
 
 4. **Google Calendar:** Place your `credentials.json` in the root directory.
 
