@@ -2,3 +2,5 @@
 memory.db
 agents/__pycache__
 app.js
+credentials.json
+token.json
